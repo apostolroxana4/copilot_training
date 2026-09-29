@@ -1,0 +1,8 @@
+{
+  "service_name": "production-style-service",
+  "environment": "development",
+  "log_level": "INFO",
+  "port": 8080,
+  "host": "0.0.0.0",
+  "enable_logging": true
+}
