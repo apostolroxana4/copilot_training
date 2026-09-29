@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigError(Exception):
@@ -86,13 +89,17 @@ def parse_service_config(data: dict[str, Any]) -> ServiceConfig:
                 errors.append(format_error)
 
     if errors:
-        raise ConfigError("Invalid config: " + "; ".join(errors))
+        message = "Invalid config: " + "; ".join(errors)
+        logger.error(message)
+        raise ConfigError(message)
 
-    return ServiceConfig(
+    config = ServiceConfig(
         port=data["port"],
         host=data["host"],
         enable_logging=data["enable_logging"],
     )
+    logger.debug("Parsed service config: %s", config)
+    return config
 
 
 def load_config(path: str | Path) -> dict[str, Any]:
@@ -102,20 +109,41 @@ def load_config(path: str | Path) -> dict[str, Any]:
         ConfigError: if the file is missing, unreadable, or not valid JSON.
     """
     config_path = Path(path)
+    logger.debug("Loading config from %s", config_path)
+
     if not config_path.is_file():
-        raise ConfigError(f"Config file not found: {config_path}")
+        message = f"Config file not found: {config_path}"
+        logger.error(message)
+        raise ConfigError(message)
 
     try:
         raw = config_path.read_text(encoding="utf-8")
     except OSError as exc:
-        raise ConfigError(f"Could not read config file {config_path}: {exc}") from exc
+        message = f"Could not read config file {config_path}: {exc}"
+        logger.error(message)
+        raise ConfigError(message) from exc
 
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise ConfigError(f"Invalid JSON in {config_path}: {exc}") from exc
+        message = f"Invalid JSON in {config_path}: {exc}"
+        logger.error(message)
+        raise ConfigError(message) from exc
 
     if not isinstance(data, dict):
-        raise ConfigError(f"Config root must be a JSON object in {config_path}")
+        message = f"Config root must be a JSON object in {config_path}"
+        logger.error(message)
+        raise ConfigError(message)
 
+    logger.info("Loaded config from %s", config_path)
     return data
+
+
+def load_service_config(path: str | Path) -> ServiceConfig:
+    """Load a JSON config file and validate it into a ServiceConfig in one step.
+
+    Raises:
+        ConfigError: if the file cannot be loaded, or its fields are missing/invalid.
+    """
+    data = load_config(path)
+    return parse_service_config(data)

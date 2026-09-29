@@ -7,12 +7,16 @@ import logging
 import sys
 from pathlib import Path
 
-from production_style_service.config import ConfigError, load_config, parse_service_config
+from production_style_service.config import ConfigError, load_service_config
 from production_style_service.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "config.example.json"
+
+EXIT_OK = 0
+EXIT_CONFIG_ERROR = 1
+EXIT_UNEXPECTED_ERROR = 2
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -36,14 +40,16 @@ def main(argv: list[str] | None = None) -> int:
     setup_logging(args.log_level)
 
     try:
-        raw_config = load_config(args.config)
-        config = parse_service_config(raw_config)
+        config = load_service_config(args.config)
     except ConfigError as exc:
         logger.error("Failed to start: %s", exc)
-        return 1
+        return EXIT_CONFIG_ERROR
+    except Exception:
+        logger.exception("Unexpected error while starting service")
+        return EXIT_UNEXPECTED_ERROR
 
     logger.info("Service starting with config: %s", config)
-    return 0
+    return EXIT_OK
 
 
 if __name__ == "__main__":
